@@ -1,0 +1,89 @@
+version: "3.9"
+
+services:
+  # Микросервис Checkout
+  checkout:
+    build:
+      context: ./checkout          # папка с исходниками
+      dockerfile: Dockerfile       # можно опустить, если файл называется Dockerfile
+    environment:
+      HTTP_ADDR: ":8081"
+      PG_DSN: "postgres://app:app@postgres:5432/app?sslmode=disable"
+      REDIS_ADDR: "redis:6379"
+    ports:
+      - "8081:8081"
+    depends_on:
+      - postgres
+      - redis
+  # Kafka-совместимый брокер (Redpanda — лёгкая замена Kafka)
+  redpanda:
+    image: redpandadata/redpanda:latest
+    container_name: redpanda
+    command:
+      - redpanda start
+      - --overprovisioned
+      - --smp=1
+      - --memory=512M
+      - --reserve-memory=0M
+      - --node-id=0
+      - --check=false
+      # два листенера: internal и external
+      - --kafka-addr=INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:19092
+      - --advertise-kafka-addr=INTERNAL://redpanda:9092,EXTERNAL://localhost:19092
+    ports:
+      - "9092:9092"    # внутренний (не обязателен наружу, но пусть остаётся)
+      - "19092:19092"  # внешний для клиентов с хоста
+      - "9644:9644"
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster info --api-urls localhost:9644 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    command: ["redis-server", "--save", "", "--appendonly", "no"] # in-memory, быстро
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+
+  # Postgres
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # (Опционально) Веб‑UI для Kafka
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports: ["8080:8080"]
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: redpanda:9092
+    depends_on:
+      - redpanda
+
+volumes:
+  redpanda_data:
+  pg_data:
