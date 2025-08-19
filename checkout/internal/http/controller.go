@@ -43,10 +43,12 @@ func (ch *Controller) GetReadyz(w http.ResponseWriter, r *http.Request) {
 	err := ch.db.Ping()
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
+		return
 	}
 	err = ch.cache.Ping()
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
+		return
 	}
 	writeJSON(w, http.StatusOK, "ready")
 }
