@@ -8,10 +8,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/cache"
 	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/config"
-	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/db"
-	myhttp "github.com/EgorLis/MicroserviceExampleGo/checkout/internal/http"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/store/postgres"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/store/redisidem"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/web"
 )
 
 func main() {
@@ -23,7 +23,7 @@ func main() {
 
 	log.Println("init modules...")
 
-	postgres, err := db.NewPostgresDB(cfg.PGDsn)
+	postgres, err := postgres.NewPaymentsRepo(cfg.PGDsn)
 	if err != nil {
 		log.Fatalf("failed init postgres: %v", err)
 	}
@@ -37,14 +37,14 @@ func main() {
 	}
 	log.Println("Postgres Migrations ended")
 
-	redis, err := cache.NewRedisCache(cfg.RedisAddr, "", 0)
+	redis, err := redisidem.New(cfg.RedisAddr, "", 0, "")
 	if err != nil {
 		log.Fatalf("failed init redis: %v", err)
 	}
 	defer redis.Close()
 	log.Println("Redis is initialized")
 
-	server := myhttp.New(cfg.HTTPAddr, postgres, redis)
+	server := web.New(cfg, config.Version, postgres, redis)
 	go server.Run()
 	log.Println("The server is initialized")
 
