@@ -13,6 +13,13 @@ database:
   name: "app"
 
 kafka:
-  brokers: "localhost:9092"
-  topic_payments: "payments.initiated.v1"
+  brokers: "localhost:19092"
+  payments_topic: "payments.initiated.v1"
   client_id: "checkout"
+
+outbox:
+  enabled: true
+  poll_interval_ms: 200
+  batch_size: 100
+  backoff_base_ms: 200
+  backoff_max_ms: 30000

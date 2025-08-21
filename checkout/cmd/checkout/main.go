@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/config"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/kafka"
 	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/store/postgres"
 	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/store/redisidem"
 	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/web"
@@ -49,7 +50,17 @@ func main() {
 	defer redis.Close()
 	log.Println("Redis is initialized")
 
-	server := web.New(cfg.HTTP, postgres, redis)
+	kafka := kafka.NewProducer(cfg.Kafka)
+	defer func() {
+		err := kafka.Close()
+		if err != nil {
+			log.Println(err)
+		}
+	}()
+
+	log.Println("kafka is initialized")
+
+	server := web.New(cfg, postgres, redis, kafka)
 	go server.Run()
 	log.Println("The server is initialized")
 

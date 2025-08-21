@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/config"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/domain/events"
 	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/domain/idempotency"
 	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/domain/payment"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/shopspring/decimal"
@@ -20,20 +22,21 @@ import (
 type PaymentsHandler struct {
 	Repo      payment.Repository
 	IdemStore idempotency.Store
-	Cfg       *config.HTTP
+	Publisher events.Publisher
+	Cfg       *config.Config
 }
 
 func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 300*time.Millisecond)
+	ctx, cancel := context.WithTimeout(r.Context(), 10000*time.Millisecond)
 	defer cancel()
 
-	key := r.Header.Get("Idempotency-Key")
-	if key == "" {
+	idemKey := r.Header.Get("Idempotency-Key")
+	if idemKey == "" {
 		writeError(w, http.StatusBadRequest, "idempotency key required")
 		return
 	}
 
-	if err := validateIdempotencyKey(key); err != nil {
+	if err := validateIdempotencyKey(idemKey); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
@@ -54,13 +57,13 @@ func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	bodyHash, err := canonicalHash(req)
 	if err != nil {
-		log.Println(err)
+		log.Printf("idempotency error: %v", err)
 		writeError(w, http.StatusInternalServerError, "")
 		return
 	}
 
 	// 1) пробуем создать «резервацию» (SETNX)
-	created, err := ph.IdemStore.Reserve(ctx, req.MerchantID, key, bodyHash, idempotency.TTL)
+	created, err := ph.IdemStore.Reserve(ctx, req.MerchantID, idemKey, bodyHash, idempotency.TTL)
 	if err != nil {
 		// Проверка на timeout / отмену контекста
 		if isTimeout(err) {
@@ -68,14 +71,14 @@ func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Прочие ошибки
-		log.Println(err)
+		log.Printf("idempotency error: %v", err)
 		writeError(w, http.StatusInternalServerError, "")
 		return
 	}
 
 	if !created {
 		// ключ уже был
-		val, err := ph.IdemStore.Load(ctx, req.MerchantID, key)
+		val, err := ph.IdemStore.Load(ctx, req.MerchantID, idemKey)
 		if err != nil {
 			// Проверка на timeout / отмену контекста
 			if isTimeout(err) {
@@ -83,7 +86,7 @@ func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			// Прочие ошибки
-			log.Println(err)
+			log.Printf("idempotency error: %v", err)
 			writeError(w, http.StatusInternalServerError, "")
 			return
 		}
@@ -109,13 +112,14 @@ func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 					writeJSON(w, http.StatusAccepted, resp)
 					return
 				}
+				log.Printf("db error: %v", err)
 				writeError(w, http.StatusInternalServerError, "")
 				return
 			}
 			resp.PaymentID = existPayment.ID
 			resp.Status = string(existPayment.Status)
 			code := http.StatusCreated
-			err = ph.IdemStore.Finalize(ctx, req.MerchantID, key, bodyHash, code, existPayment.ID,
+			err = ph.IdemStore.Finalize(ctx, req.MerchantID, idemKey, bodyHash, code, existPayment.ID,
 				map[string]any{"payment_id": resp.PaymentID, "status": resp.Status}, idempotency.TTL)
 			if err != nil {
 				// Проверка на timeout / отмену контекста
@@ -127,6 +131,9 @@ func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusInternalServerError, "")
 				return
 			}
+
+			log.Printf("idempotency: value finalized")
+
 			writeJSON(w, code, resp)
 			return
 		case idempotency.StateDone:
@@ -138,6 +145,9 @@ func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 
 	}
+
+	log.Printf("idempotency: value reserved")
+
 	payID := createPaymentID()
 
 	amount, _ := decimal.NewFromString(req.Amount)
@@ -172,10 +182,12 @@ func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	log.Println("db: row added")
+
 	resp := PaymentCreateResponse{Status: string(pay.Status), PaymentID: payID}
 	code := http.StatusCreated
 	// 3) записать финализацию в Redis и обновить TTL
-	err = ph.IdemStore.Finalize(ctx, req.MerchantID, key, bodyHash, code, payID,
+	err = ph.IdemStore.Finalize(ctx, req.MerchantID, idemKey, bodyHash, code, payID,
 		map[string]any{"payment_id": resp.PaymentID, "status": resp.Status}, idempotency.TTL)
 	if err != nil {
 		// Проверка на timeout / отмену контекста
@@ -184,8 +196,25 @@ func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		// Прочие ошибки
+		log.Printf("idempotency error: %v", err)
 		writeError(w, http.StatusInternalServerError, "")
 		return
+	}
+
+	log.Printf("idempotency: value finalized")
+
+	event, err := events.NewPaymentCreatedEvent(pay)
+	event.Headers["x-idempotency-key"] = idemKey
+	event.Headers["x-trace-id"] = uuid.NewString()
+
+	if err != nil {
+		log.Printf("kafka: build event failed payment_id=%s err=%v", pay.ID, err)
+	}
+
+	if err = ph.Publisher.Publish(ctx, event); err != nil {
+		log.Printf("kafka: publish failed payment_id=%s err=%v", pay.ID, err)
+	} else {
+		log.Printf("kafka: published payment_id=%s", pay.ID)
 	}
 
 	writeJSON(w, code, resp)
@@ -205,7 +234,7 @@ func (ph *PaymentsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), ph.Cfg.PaymentTimeout)
+	ctx, cancel := context.WithTimeout(r.Context(), ph.Cfg.HTTP.PaymentTimeout)
 	defer cancel()
 
 	payment, err := ph.Repo.GetPaymentByID(ctx, paymentID)

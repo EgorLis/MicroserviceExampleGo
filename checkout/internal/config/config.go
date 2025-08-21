@@ -46,6 +46,9 @@ type Kafka struct {
 	ClientID      string `mapstructure:"client_id"`
 }
 
+type Outbox struct {
+}
+
 func LoadConfig() (*Config, error) {
 	if _, err := os.Stat(".env"); err == nil {
 		// пытаемся загрузить .env
