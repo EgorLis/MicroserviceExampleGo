@@ -14,14 +14,14 @@ import (
 
 type WebServer struct {
 	server *http.Server
-	cfg    *config.Config
+	cfg    *config.HTTP
 }
 
-func New(cfg *config.Config, version string, db *postgres.PaymentsRepo, idemStore *redisidem.Store) *WebServer {
-	healthHandler := &v1.HealthHandler{Version: version, DBPinger: db, CachePinger: idemStore}
+func New(cfg *config.HTTP, db *postgres.PaymentsRepo, idemStore *redisidem.Store) *WebServer {
+	healthHandler := &v1.HealthHandler{Version: config.Version, DBPinger: db, CachePinger: idemStore}
 	paymentsHandler := &v1.PaymentsHandler{Repo: db, Cfg: cfg, IdemStore: idemStore}
 	srv := &http.Server{
-		Addr:              cfg.HTTPAddr,
+		Addr:              cfg.Addr,
 		Handler:           newRouter(healthHandler, paymentsHandler),
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
@@ -29,7 +29,7 @@ func New(cfg *config.Config, version string, db *postgres.PaymentsRepo, idemStor
 		ReadHeaderTimeout: 2 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	return &WebServer{server: srv}
+	return &WebServer{server: srv, cfg: cfg}
 }
 
 func (ws *WebServer) Run() {

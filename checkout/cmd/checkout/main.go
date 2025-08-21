@@ -19,11 +19,16 @@ func main() {
 	defer stop()
 	defer log.Println("exit...")
 
-	cfg := config.LoadConfig()
+	cfg, err := config.LoadConfig()
+	if err != nil {
+		log.Fatalf("failed load config: %v", err)
+	}
 
 	log.Println("init modules...")
 
-	postgres, err := postgres.NewPaymentsRepo(cfg.PGDsn)
+	dsn := cfg.GetDSN()
+
+	postgres, err := postgres.NewPaymentsRepo(dsn)
 	if err != nil {
 		log.Fatalf("failed init postgres: %v", err)
 	}
@@ -37,14 +42,14 @@ func main() {
 	}
 	log.Println("Postgres Migrations ended")
 
-	redis, err := redisidem.New(cfg.RedisAddr, "", 0, "")
+	redis, err := redisidem.New(cfg.Redis)
 	if err != nil {
 		log.Fatalf("failed init redis: %v", err)
 	}
 	defer redis.Close()
 	log.Println("Redis is initialized")
 
-	server := web.New(cfg, config.Version, postgres, redis)
+	server := web.New(cfg.HTTP, postgres, redis)
 	go server.Run()
 	log.Println("The server is initialized")
 

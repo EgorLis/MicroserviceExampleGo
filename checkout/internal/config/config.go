@@ -1,41 +1,107 @@
 package config
 
 import (
-	"log"
+	"errors"
+	"fmt"
 	"os"
-	"strconv"
+	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
+	"github.com/spf13/viper"
 )
 
 var Version = "unknown"
 
 type Config struct {
-	HTTPAddr       string
-	PGDsn          string
-	RedisAddr      string
-	PaymentTimeout time.Duration
+	HTTP  *HTTP     `mapstructure:"http"`
+	Redis *Redis    `mapstructure:"redis"`
+	DB    *Database `mapstructure:"database"`
+	Kafka *Kafka    `mapstructure:"kafka"`
 }
 
-func LoadConfig() *Config {
-
-	timeoutMs, err := strconv.Atoi(getenv("PAYMENT_TIMEOUT_MS", "500"))
-	if err != nil {
-		log.Fatalf("error: cant initialize PAYMENT_TIMEOUT_MS")
-	}
-
-	payTimeout := time.Duration(timeoutMs) * time.Millisecond
-
-	return &Config{
-		HTTPAddr:       getenv("HTTP_ADDR", ":7081"),
-		PGDsn:          getenv("PG_DSN", "postgres://app:app@localhost:5432/app?sslmode=disable"),
-		RedisAddr:      getenv("REDIS_ADDR", "localhost:6379"),
-		PaymentTimeout: payTimeout,
-	}
+type HTTP struct {
+	Addr           string        `mapstructure:"addr"`
+	PaymentTimeout time.Duration `mapstructure:"payment_timeout"`
 }
 
-func getenv(key, fallback string) string {
-	if value, ok := os.LookupEnv(key); ok {
-		return value
+type Database struct {
+	Host string `mapstructure:"host"`
+	Port int    `mapstructure:"port"`
+	Name string `mapstructure:"name"`
+	User string
+	Pass string
+}
+
+type Redis struct {
+	Addr   string `mapstructure:"addr"`
+	Prefix string `mapstructure:"prefix"`
+	DB     int    `mapstructure:"db"`
+	Pass   string
+}
+
+type Kafka struct {
+	Brokers       string `mapstructure:"brokers"`
+	PaymentsTopic string `mapstructure:"payments_topic"`
+	ClientID      string `mapstructure:"client_id"`
+}
+
+func LoadConfig() (*Config, error) {
+	if _, err := os.Stat(".env"); err == nil {
+		// пытаемся загрузить .env
+		if err := godotenv.Load(); err != nil {
+			return nil, errors.New(".env file not found, skipping")
+		}
 	}
-	return fallback
+
+	v := viper.New()
+
+	// ищем файл config.yaml
+	v.SetConfigFile(os.Getenv("CONFIG_PATH"))
+
+	// читаем ENV (с префиксом APP_)
+	//v.SetEnvPrefix("APP")
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+
+	// читаем config.yaml
+	if err := v.ReadInConfig(); err != nil {
+		return nil, err
+	}
+
+	cfg := &Config{}
+	if err := v.Unmarshal(&cfg); err != nil {
+		return nil, err
+	}
+
+	// дополняем секретами из ENV
+	cfg.DB.User = v.GetString("pg.user")
+	cfg.DB.Pass = v.GetString("pg.pass")
+	cfg.Redis.Pass = v.GetString("redis.pass")
+
+	// env override для Docker
+	if brokers := v.GetString("kafka.brokers"); brokers != "" {
+		cfg.Kafka.Brokers = brokers
+	}
+
+	if postgresHost := v.GetString("pg.host"); postgresHost != "" {
+		cfg.DB.Host = postgresHost
+	}
+
+	if redisAddr := v.GetString("redis.addr"); redisAddr != "" {
+		cfg.Redis.Addr = redisAddr
+	}
+
+	return cfg, nil
+}
+
+func (c *Config) GetDSN() string {
+	return fmt.Sprintf(
+		"postgres://%s:%s@%s:%d/%s?sslmode=disable",
+		c.DB.User,
+		c.DB.Pass,
+		c.DB.Host,
+		c.DB.Port,
+		c.DB.Name,
+	)
 }

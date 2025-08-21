@@ -7,6 +7,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/config"
 	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/domain/idempotency"
 	"github.com/redis/go-redis/v9"
 )
@@ -16,14 +17,11 @@ type Store struct {
 	prefix string
 }
 
-func New(addr, password string, db int, prefix string) (*Store, error) {
-	if prefix == "" {
-		prefix = "idem:checkout:"
-	}
+func New(cfg *config.Redis) (*Store, error) {
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     addr,
-		Password: password,
-		DB:       db,
+		Addr:     cfg.Addr,
+		Password: cfg.Pass,
+		DB:       cfg.DB,
 	})
 
 	// Проверим соединение
@@ -34,7 +32,7 @@ func New(addr, password string, db int, prefix string) (*Store, error) {
 		return nil, fmt.Errorf("redis not responding: %v", err)
 	}
 
-	return &Store{rdb: rdb, prefix: prefix}, nil
+	return &Store{rdb: rdb, prefix: cfg.Prefix}, nil
 }
 
 func (s *Store) Ping() error {

@@ -6,29 +6,34 @@ WORKDIR /app
 
 # build args
 ARG VERSION=unknown
+ENV GO111MODULE=on CGO_ENABLED=0
 
 # Оптимизация кеша зависимостей
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,target=/go/pkg/mod \
+    go mod download
 
 # Копируем остальной код
 COPY . .
 
 # Сборка бинаря
-RUN CGO_ENABLED=0 GOOS=linux go build \
+RUN --mount=type=cache,target=/go/pkg/mod \
+     GOOS=linux go build -mod=readonly -trimpath -buildvcs=false\
     -ldflags="-s -w -X github.com/EgorLis/MicroserviceExampleGo/checkout/internal/config.Version=${VERSION}" \
-    -o checkout ./cmd/checkout
+    -o /app/bin/checkout ./cmd/checkout
     
 # ---------- run stage ----------
 FROM gcr.io/distroless/base-debian12
 
 WORKDIR /app
 
-# Копируем только бинарь из builder
-COPY --from=builder /app/checkout .
+# бинарь
+COPY --from=builder /app/bin/checkout /app/checkout
+
+# по умолчанию путь к конфигу (можно переопределить в compose)
+ENV CONFIG_PATH=/app/config/config.yaml
 
 # По умолчанию порт (для документации, но expose не обязателен)
 EXPOSE 8081
-
-# Запуск
-CMD ["./checkout"]
+USER nonroot:nonroot
+ENTRYPOINT ["/app/checkout"]

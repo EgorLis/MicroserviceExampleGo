@@ -20,7 +20,7 @@ import (
 type PaymentsHandler struct {
 	Repo      payment.Repository
 	IdemStore idempotency.Store
-	Cfg       *config.Config
+	Cfg       *config.HTTP
 }
 
 func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {

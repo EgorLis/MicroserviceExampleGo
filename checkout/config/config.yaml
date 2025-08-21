@@ -1,0 +1,18 @@
+http:
+  addr: ":8081"
+  payment_timeout: 500ms
+
+redis:
+  addr: "localhost:6379"
+  prefix: "idem:checkout:"
+  db: 0
+
+database:
+  host: "localhost"
+  port: 5432
+  name: "app"
+
+kafka:
+  brokers: "localhost:9092"
+  topic_payments: "payments.initiated.v1"
+  client_id: "checkout"
