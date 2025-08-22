@@ -1,0 +1,20 @@
+http:
+  addr: ":7081"
+
+database:
+  host: "localhost"
+  port: 5432
+  name: "app"
+
+kafka:
+  brokers: ["localhost:19092"]
+  group_id: "provider"
+  client_id: "provider"
+  payments_initiated_topic: "payments.initiated.v1"
+  payments_processed_topic: "payments.processed.v1"
+  batch_size: 25
+  batch_timeout: 15ms
+
+psp:
+  prefix: "prov_"
+  chance: 0.80 # от 0 до 1

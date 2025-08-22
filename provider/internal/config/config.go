@@ -14,11 +14,10 @@ import (
 var Version = "unknown"
 
 type Config struct {
-	HTTP   HTTP     `mapstructure:"http"`
-	Redis  Redis    `mapstructure:"redis"`
-	DB     Database `mapstructure:"database"`
-	Kafka  Kafka    `mapstructure:"kafka"`
-	Outbox Outbox   `mapstructure:"outbox"`
+	HTTP  HTTP     `mapstructure:"http"`
+	DB    Database `mapstructure:"database"`
+	Kafka Kafka    `mapstructure:"kafka"`
+	PSP   PSP      `mapstructure:"psp"`
 }
 
 type HTTP struct {
@@ -34,28 +33,19 @@ type Database struct {
 	Pass string
 }
 
-type Redis struct {
-	Addr   string `mapstructure:"addr"`
-	Prefix string `mapstructure:"prefix"`
-	DB     int    `mapstructure:"db"`
-	Pass   string
-}
-
 type Kafka struct {
-	Brokers       []string      `mapstructure:"brokers"`
-	PaymentsTopic string        `mapstructure:"payments_topic"`
-	ClientID      string        `mapstructure:"client_id"`
-	BatchSize     int           `mapstructure:"batch_size"`
-	BatchTimeout  time.Duration `mapstructure:"batch_timeout"`
+	Brokers                []string      `mapstructure:"brokers"`
+	PaymentsInitiatedTopic string        `mapstructure:"payments_initiated_topic"`
+	PaymentsProcessedTopic string        `mapstructure:"payments_processed_topic"`
+	GroupID                string        `mapstructure:"group_id"`
+	ClientID               string        `mapstructure:"client_id"`
+	BatchSize              int           `mapstructure:"batch_size"`
+	BatchTimeout           time.Duration `mapstructure:"batch_timeout"`
 }
 
-type Outbox struct {
-	PollInterval        time.Duration `mapstructure:"poll_interval"`
-	PollTimeout         time.Duration `mapstructure:"poll_timeout"`
-	BatchSize           int           `mapstructure:"batch_size"`
-	ResetEventsInterval time.Duration `mapstructure:"reset_events_interval"`
-	ResetEventsTimeout  time.Duration `mapstructure:"reset_events_timeout"`
-	MaxParallel         int           `mapstructure:"max_parallel"`
+type PSP struct {
+	Chance float64 `mapstructure:"chance"`
+	Prefix string  `mapstructure:"prefix"`
 }
 
 func LoadConfig() (*Config, error) {
@@ -89,7 +79,6 @@ func LoadConfig() (*Config, error) {
 	// дополняем секретами из ENV
 	cfg.DB.User = v.GetString("pg.user")
 	cfg.DB.Pass = v.GetString("pg.pass")
-	cfg.Redis.Pass = v.GetString("redis.pass")
 
 	// env override для Docker
 	if brokers := v.GetString("kafka.brokers"); brokers != "" {
@@ -98,10 +87,6 @@ func LoadConfig() (*Config, error) {
 
 	if postgresHost := v.GetString("pg.host"); postgresHost != "" {
 		cfg.DB.Host = postgresHost
-	}
-
-	if redisAddr := v.GetString("redis.addr"); redisAddr != "" {
-		cfg.Redis.Addr = redisAddr
 	}
 
 	return cfg, nil

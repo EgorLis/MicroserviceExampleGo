@@ -13,7 +13,7 @@ database:
   name: "app"
 
 kafka:
-  brokers: "localhost:19092"
+  brokers: ["localhost:19092"]
   batch_size: 25
   batch_timeout: 15ms
   payments_topic: "payments.initiated.v1"

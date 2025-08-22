@@ -5,8 +5,8 @@ import (
 	"log"
 	"time"
 
-	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/config"
-	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/shared/event"
+	"github.com/EgorLis/MicroserviceExampleGo/provider/internal/config"
+	"github.com/EgorLis/MicroserviceExampleGo/provider/internal/shared/event"
 	"github.com/segmentio/kafka-go"
 )
 

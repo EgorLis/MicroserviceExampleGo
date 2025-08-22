@@ -6,7 +6,8 @@ import (
 )
 
 func (p *Producer) toKafkaMessage(evt event.Envelope) kafka.Message {
-	headers := make([]kafka.Header, 0, len(evt.Headers)+1)
+	evt.Headers["client-id"] = p.cfg.ClientID
+	headers := make([]kafka.Header, 0, len(evt.Headers))
 	for k, v := range evt.Headers {
 		headers = append(headers, kafka.Header{Key: k, Value: []byte(v)})
 	}

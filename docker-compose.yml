@@ -16,6 +16,22 @@ services:
       - postgres
       - redis
       - redpanda
+# Микросервис Provider
+  provider:
+    build:
+      context: ./provider         # папка с исходниками
+      dockerfile: Dockerfile       # можно опустить, если файл называется Dockerfile
+    env_file: 
+      - .env
+    environment:
+      - CONFIG_PATH=/app/config/config.yaml
+    volumes:
+      - ./provider/config:/app/config:ro
+    ports:
+      - "7081:7081"
+    depends_on:
+      - postgres
+      - redpanda
   # Kafka-совместимый брокер (Redpanda — лёгкая замена Kafka)
   redpanda:
     image: redpandadata/redpanda:latest
