@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/domain/payment"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/shared/event"
 )
 
 type PaymentCreated struct {
@@ -20,9 +21,9 @@ type PaymentCreated struct {
 }
 
 // Конструктор события из доменного объекта
-func NewPaymentCreatedEvent(pay payment.Payment) (Event, error) {
+func NewPaymentCreatedEvent(pay payment.Payment) (event.Envelope, error) {
 	payload := PaymentCreated{
-		EventType:    "payment.created",
+		EventType:    string(event.PaymentCreatedEvent),
 		EventVersion: 1,
 		PaymentID:    pay.ID,
 		MerchantID:   pay.MerchantID,
@@ -35,13 +36,13 @@ func NewPaymentCreatedEvent(pay payment.Payment) (Event, error) {
 
 	value, err := json.Marshal(payload)
 	if err != nil {
-		return Event{}, err
+		return event.Envelope{}, err
 	}
 
-	return Event{
-		Type:  PaymentCreatedEvent,
-		Key:   pay.ID, // партиционирование по payment_id
-		Value: value,
+	return event.Envelope{
+		Type:    event.PaymentCreatedEvent,
+		Key:     pay.ID, // партиционирование по payment_id
+		Payload: value,
 		Headers: map[string]string{
 			"content-type": "application/json",
 		},

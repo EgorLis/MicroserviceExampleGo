@@ -7,22 +7,22 @@ import (
 	"time"
 
 	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/config"
-	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/kafka"
-	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/store/postgres"
-	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/store/redisidem"
-	v1 "github.com/EgorLis/MicroserviceExampleGo/checkout/internal/web/v1"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/infra/kafka"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/infra/postgres"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/infra/redisidem"
+	v1 "github.com/EgorLis/MicroserviceExampleGo/checkout/internal/transport/web/v1"
 )
 
 type WebServer struct {
 	server *http.Server
-	cfg    *config.Config
+	cfg    config.HTTP
 }
 
-func New(cfg *config.Config, db *postgres.PaymentsRepo, idemStore *redisidem.Store, kafkaProducer *kafka.Producer) *WebServer {
+func New(cfg config.HTTP, db *postgres.PaymentsRepo, idemStore *redisidem.Store, kafkaProducer *kafka.Producer) *WebServer {
 	healthHandler := &v1.HealthHandler{Version: config.Version, DBPinger: db, CachePinger: idemStore}
 	paymentsHandler := &v1.PaymentsHandler{Cfg: cfg, IdemStore: idemStore, Repo: db, Publisher: kafkaProducer}
 	srv := &http.Server{
-		Addr:              cfg.HTTP.Addr,
+		Addr:              cfg.Addr,
 		Handler:           newRouter(healthHandler, paymentsHandler),
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,

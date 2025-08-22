@@ -1,11 +1,11 @@
 package kafka
 
 import (
-	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/domain/events"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/shared/event"
 	"github.com/segmentio/kafka-go"
 )
 
-func (p *Producer) toKafkaMessage(evt events.Event) kafka.Message {
+func (p *Producer) toKafkaMessage(evt event.Envelope) kafka.Message {
 	headers := make([]kafka.Header, 0, len(evt.Headers)+1)
 	for k, v := range evt.Headers {
 		headers = append(headers, kafka.Header{Key: k, Value: []byte(v)})
@@ -16,14 +16,14 @@ func (p *Producer) toKafkaMessage(evt events.Event) kafka.Message {
 
 	var topic string
 	switch evt.Type {
-	case events.PaymentCreatedEvent:
+	case event.PaymentCreatedEvent:
 		topic = p.cfg.PaymentsTopic
 	}
 
 	return kafka.Message{
 		Topic:   topic,
 		Key:     []byte(evt.Key),
-		Value:   evt.Value,
+		Value:   evt.Payload,
 		Headers: headers,
 	}
 }

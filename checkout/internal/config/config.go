@@ -14,10 +14,11 @@ import (
 var Version = "unknown"
 
 type Config struct {
-	HTTP  *HTTP     `mapstructure:"http"`
-	Redis *Redis    `mapstructure:"redis"`
-	DB    *Database `mapstructure:"database"`
-	Kafka *Kafka    `mapstructure:"kafka"`
+	HTTP   HTTP     `mapstructure:"http"`
+	Redis  Redis    `mapstructure:"redis"`
+	DB     Database `mapstructure:"database"`
+	Kafka  Kafka    `mapstructure:"kafka"`
+	Outbox Outbox   `mapstructure:"outbox"`
 }
 
 type HTTP struct {
@@ -41,12 +42,20 @@ type Redis struct {
 }
 
 type Kafka struct {
-	Brokers       string `mapstructure:"brokers"`
-	PaymentsTopic string `mapstructure:"payments_topic"`
-	ClientID      string `mapstructure:"client_id"`
+	Brokers       string        `mapstructure:"brokers"`
+	PaymentsTopic string        `mapstructure:"payments_topic"`
+	ClientID      string        `mapstructure:"client_id"`
+	BatchSize     int           `mapstructure:"batch_size"`
+	BatchTimeout  time.Duration `mapstructure:"batch_timeout"`
 }
 
 type Outbox struct {
+	PollInterval        time.Duration `mapstructure:"poll_interval"`
+	PollTimeout         time.Duration `mapstructure:"poll_timeout"`
+	BatchSize           int           `mapstructure:"batch_size"`
+	ResetEventsInterval time.Duration `mapstructure:"reset_events_interval"`
+	ResetEventsTimeout  time.Duration `mapstructure:"reset_events_timeout"`
+	MaxParallel         int           `mapstructure:"max_parallel"`
 }
 
 func LoadConfig() (*Config, error) {

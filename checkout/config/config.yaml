@@ -14,12 +14,15 @@ database:
 
 kafka:
   brokers: "localhost:19092"
+  batch_size: 25
+  batch_timeout: 15ms
   payments_topic: "payments.initiated.v1"
   client_id: "checkout"
 
 outbox:
-  enabled: true
-  poll_interval_ms: 200
+  poll_interval: 200ms
+  poll_timeout: 2s
+  reset_events_interval: 1s
+  reset_events_timeout: 1s
   batch_size: 100
-  backoff_base_ms: 200
-  backoff_max_ms: 30000
+  max_parallel: 25

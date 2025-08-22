@@ -9,10 +9,11 @@ import (
 	"time"
 
 	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/config"
-	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/kafka"
-	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/store/postgres"
-	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/store/redisidem"
-	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/web"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/infra/kafka"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/infra/outbox"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/infra/postgres"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/infra/redisidem"
+	"github.com/EgorLis/MicroserviceExampleGo/checkout/internal/transport/web"
 )
 
 func main() {
@@ -58,9 +59,14 @@ func main() {
 		}
 	}()
 
-	log.Println("kafka is initialized")
+	log.Println("Kafka is initialized")
 
-	server := web.New(cfg, postgres, redis, kafka)
+	worker := outbox.New(cfg.Outbox, kafka, postgres)
+	go worker.Run(ctx)
+
+	log.Println("OutboxWorker is initialized")
+
+	server := web.New(cfg.HTTP, postgres, redis, kafka)
 	go server.Run()
 	log.Println("The server is initialized")
 

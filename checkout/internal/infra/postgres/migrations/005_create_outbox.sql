@@ -4,7 +4,6 @@ CREATE TABLE IF NOT EXISTS checkout.outbox_events (
     aggregate_id    TEXT        NOT NULL,                 -- payment_id
     event_type      TEXT        NOT NULL,                 -- "payment.created"
     event_version   INT         NOT NULL DEFAULT 1,
-    topic           TEXT        NOT NULL,
     key             TEXT        NOT NULL,                 -- партиционирование
     payload         JSONB       NOT NULL,                 -- value (готовый JSON)
     headers         JSONB       NOT NULL DEFAULT '{}'::jsonb,

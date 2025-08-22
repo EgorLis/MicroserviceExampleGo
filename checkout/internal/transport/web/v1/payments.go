@@ -23,7 +23,7 @@ type PaymentsHandler struct {
 	Repo      payment.Repository
 	IdemStore idempotency.Store
 	Publisher events.Publisher
-	Cfg       *config.Config
+	Cfg       config.HTTP
 }
 
 func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -161,8 +161,21 @@ func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Status:      payment.StatusPending,
 	}
 
+	event, err := events.NewPaymentCreatedEvent(pay)
+	if err != nil {
+		log.Printf("invalid payment, can't create event: %v", err)
+
+	}
+
+	if event.Headers == nil {
+		event.Headers = make(map[string]string, 2)
+	}
+
+	event.Headers["x-idempotency-key"] = idemKey
+	event.Headers["x-trace-id"] = uuid.NewString()
+
 	// db logic
-	if err := ph.Repo.InsertPayment(ctx, pay); err != nil {
+	if err := ph.Repo.InsertPayment(ctx, pay, event); err != nil {
 		// 1. Проверка на timeout / отмену контекста
 		if isTimeout(err) {
 			writeError(w, http.StatusGatewayTimeout, "request timed out")
@@ -203,20 +216,6 @@ func (ph *PaymentsHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("idempotency: value finalized")
 
-	event, err := events.NewPaymentCreatedEvent(pay)
-	event.Headers["x-idempotency-key"] = idemKey
-	event.Headers["x-trace-id"] = uuid.NewString()
-
-	if err != nil {
-		log.Printf("kafka: build event failed payment_id=%s err=%v", pay.ID, err)
-	}
-
-	if err = ph.Publisher.Publish(ctx, event); err != nil {
-		log.Printf("kafka: publish failed payment_id=%s err=%v", pay.ID, err)
-	} else {
-		log.Printf("kafka: published payment_id=%s", pay.ID)
-	}
-
 	writeJSON(w, code, resp)
 }
 
@@ -234,7 +233,7 @@ func (ph *PaymentsHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(r.Context(), ph.Cfg.HTTP.PaymentTimeout)
+	ctx, cancel := context.WithTimeout(r.Context(), ph.Cfg.PaymentTimeout)
 	defer cancel()
 
 	payment, err := ph.Repo.GetPaymentByID(ctx, paymentID)

@@ -17,7 +17,7 @@ type Store struct {
 	prefix string
 }
 
-func New(cfg *config.Redis) (*Store, error) {
+func New(cfg config.Redis) (*Store, error) {
 	rdb := redis.NewClient(&redis.Options{
 		Addr:     cfg.Addr,
 		Password: cfg.Pass,
