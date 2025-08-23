@@ -16,6 +16,8 @@ func (p *Producer) toKafkaMessage(evt event.Envelope) kafka.Message {
 	switch evt.Type {
 	case event.PaymentProcessedEvent:
 		topic = p.cfg.PaymentsProcessedTopic
+	case event.PaymentFailedEvent:
+		topic = p.cfg.PaymentsFailedTopic
 	}
 
 	return kafka.Message{
@@ -26,7 +28,7 @@ func (p *Producer) toKafkaMessage(evt event.Envelope) kafka.Message {
 	}
 }
 
-func (c *Consumer) toEvent(msg kafka.Message) event.Envelope {
+func (c *consumer) toEvent(msg kafka.Message) event.Envelope {
 	headers := make(map[string]string, len(msg.Headers))
 
 	for _, msgHeader := range msg.Headers {

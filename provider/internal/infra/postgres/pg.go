@@ -95,7 +95,7 @@ func (r *PaymentsRepo) RunMigrations() error {
 			return err
 		}
 
-		fmt.Println(">> executing", e.Name())
+		fmt.Println("postgres: >> executing", e.Name())
 		if _, err := r.pool.Exec(ctx, string(sqlBytes)); err != nil {
 			return fmt.Errorf("migration %s failed: %w", e.Name(), err)
 		}
@@ -165,7 +165,7 @@ func (r *PaymentsRepo) Statistic(ctx context.Context) (events.Statistic, error) 
 	SELECT
     	COUNT(*) 										AS processed,
     	COUNT(*) FILTER (WHERE status = 'AUTHORIZED')   AS authorized,
-    	COUNT(*) FILTER (WHERE status = 'DECLINED')     AS declined,
+    	COUNT(*) FILTER (WHERE status = 'DECLINED')     AS declined
 	FROM provider.processed_events;
 	`).Scan(
 		&stats.Processed,
@@ -173,7 +173,7 @@ func (r *PaymentsRepo) Statistic(ctx context.Context) (events.Statistic, error) 
 		&stats.Declined)
 
 	if err != nil {
-		return events.Statistic{}, nil
+		return events.Statistic{}, err
 	}
 
 	return stats, nil

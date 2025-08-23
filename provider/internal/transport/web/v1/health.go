@@ -7,14 +7,17 @@ import (
 	"time"
 
 	"github.com/EgorLis/MicroserviceExampleGo/provider/internal/domain/events"
+	"github.com/EgorLis/MicroserviceExampleGo/provider/internal/shared/helpers"
 )
+
+type Database interface {
+	Ping() error
+	Statistic(ctx context.Context) (events.Statistic, error)
+}
 
 type HealthHandler struct {
 	Version string
-	DB      interface {
-		Ping() error
-		Statistic(ctx context.Context) (events.Statistic, error)
-	}
+	DB      Database
 }
 
 func (h *HealthHandler) Liveness(w http.ResponseWriter, r *http.Request) {
@@ -39,7 +42,7 @@ func (h *HealthHandler) Stats(w http.ResponseWriter, r *http.Request) {
 	defer cancel()
 	stats, err := h.DB.Statistic(ctx)
 	if err != nil {
-		if isTimeout(err) {
+		if helpers.IsTimeout(err) {
 			writeError(w, http.StatusGatewayTimeout, "")
 			return
 		}

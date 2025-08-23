@@ -34,13 +34,23 @@ type Database struct {
 }
 
 type Kafka struct {
-	Brokers                []string      `mapstructure:"brokers"`
-	PaymentsInitiatedTopic string        `mapstructure:"payments_initiated_topic"`
-	PaymentsProcessedTopic string        `mapstructure:"payments_processed_topic"`
-	GroupID                string        `mapstructure:"group_id"`
+	Brokers  []string      `mapstructure:"brokers"`
+	Producer KafkaProducer `mapstructure:"producer"`
+	Consumer KafkaConsumer `mapstructure:"consumer"`
+}
+
+type KafkaProducer struct {
 	ClientID               string        `mapstructure:"client_id"`
 	BatchSize              int           `mapstructure:"batch_size"`
 	BatchTimeout           time.Duration `mapstructure:"batch_timeout"`
+	PaymentsProcessedTopic string        `mapstructure:"payments_processed_topic"`
+	PaymentsFailedTopic    string        `mapstructure:"payments_failed_topic"`
+}
+
+type KafkaConsumer struct {
+	Partitions             int    `mapstructure:"partitions"`
+	GroupID                string `mapstructure:"group_id"`
+	PaymentsInitiatedTopic string `mapstructure:"payments_initiated_topic"`
 }
 
 type PSP struct {

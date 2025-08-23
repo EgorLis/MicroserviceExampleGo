@@ -8,12 +8,19 @@ database:
 
 kafka:
   brokers: ["localhost:19092"]
-  group_id: "provider"
-  client_id: "provider"
-  payments_initiated_topic: "payments.initiated.v1"
-  payments_processed_topic: "payments.processed.v1"
-  batch_size: 25
-  batch_timeout: 15ms
+  
+  consumer:
+    partitions: 3
+    group_id: "provider"
+    payments_initiated_topic: "payments.initiated.v1"
+
+  producer:
+    client_id: "provider"
+    payments_processed_topic: "payments.processed.v1"
+    payments_failed_topic: "payments.failed.v1"
+    batch_size: 25
+    batch_timeout: 15ms
+       
 
 psp:
   prefix: "prov_"

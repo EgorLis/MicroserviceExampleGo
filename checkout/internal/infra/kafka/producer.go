@@ -34,9 +34,12 @@ func NewProducer(cfg config.Kafka) *Producer {
 	}
 }
 
-func (p *Producer) Close() error {
-	log.Println("Kafka closed...")
-	return p.w.Close()
+func (p *Producer) Close() {
+	if err := p.w.Close(); err != nil {
+		log.Printf("kafka: error while closing producer:%w", err)
+		return
+	}
+	log.Println("Kafka producer closed...")
 }
 
 func (p *Producer) Publish(ctx context.Context, event event.Envelope) error {

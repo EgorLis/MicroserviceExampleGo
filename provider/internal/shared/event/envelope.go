@@ -5,6 +5,7 @@ type EnvelopeType string
 const (
 	PaymentCreatedEvent   EnvelopeType = "payment.created"
 	PaymentProcessedEvent EnvelopeType = "payments.processed"
+	PaymentFailedEvent    EnvelopeType = "payments.failed"
 )
 
 type Envelope struct {

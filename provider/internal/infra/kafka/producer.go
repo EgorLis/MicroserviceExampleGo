@@ -12,30 +12,30 @@ import (
 
 type Producer struct {
 	w   *kafka.Writer
-	cfg config.Kafka
+	cfg config.KafkaProducer
 }
 
-func NewProducer(cfg config.Kafka) *Producer {
+func newProducer(cfg config.Kafka) *Producer {
 	return &Producer{
 		w: &kafka.Writer{
 			Addr:                   kafka.TCP(cfg.Brokers...),
 			Balancer:               &kafka.Hash{},
-			RequiredAcks:           kafka.RequireOne, // быстрее, чем RequireAll
-			AllowAutoTopicCreation: true,             // удобно в dev
-			BatchTimeout:           cfg.BatchTimeout, // "linger": маленький -> быстрее flush
-			BatchSize:              cfg.BatchSize,    // мгновенно пушить одиночки
-			BatchBytes:             0,                // не ограничиваем по байтам
-			Compression:            kafka.Snappy,     // опционально, CPU vs сеть
-			MaxAttempts:            5,                // ретраи внутри writer
+			RequiredAcks:           kafka.RequireOne,          // быстрее, чем RequireAll
+			AllowAutoTopicCreation: true,                      // удобно в dev
+			BatchTimeout:           cfg.Producer.BatchTimeout, // "linger": маленький -> быстрее flush
+			BatchSize:              cfg.Producer.BatchSize,    // мгновенно пушить одиночки
+			BatchBytes:             0,                         // не ограничиваем по байтам
+			Compression:            kafka.Snappy,              // опционально, CPU vs сеть
+			MaxAttempts:            5,                         // ретраи внутри writer
 			WriteTimeout:           3 * time.Second,
 			ReadTimeout:            3 * time.Second,
 			// Async: false  // синхронная запись (получаешь ошибку сразу)
-		}, cfg: cfg,
+		}, cfg: cfg.Producer,
 	}
 }
 
-func (p *Producer) Close() error {
-	log.Println("Kafka closed...")
+func (p *Producer) close() error {
+	log.Println("Kafka producer: closed...")
 	return p.w.Close()
 }
 

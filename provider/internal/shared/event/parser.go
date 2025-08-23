@@ -8,6 +8,8 @@ func StringToType(s string) (EnvelopeType, error) {
 		return PaymentCreatedEvent, nil
 	case string(PaymentProcessedEvent):
 		return PaymentProcessedEvent, nil
+	case string(PaymentFailedEvent):
+		return PaymentFailedEvent, nil
 	default:
 		return EnvelopeType(""), errors.New("invalid envelope type")
 	}

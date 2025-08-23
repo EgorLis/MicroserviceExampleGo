@@ -7,17 +7,15 @@ import (
 	"time"
 
 	"github.com/EgorLis/MicroserviceExampleGo/provider/internal/config"
-	"github.com/EgorLis/MicroserviceExampleGo/provider/internal/infra/kafka"
-	"github.com/EgorLis/MicroserviceExampleGo/provider/internal/infra/postgres"
 	v1 "github.com/EgorLis/MicroserviceExampleGo/provider/internal/transport/web/v1"
 )
 
-type WebServer struct {
+type Server struct {
 	server *http.Server
 	cfg    config.HTTP
 }
 
-func New(cfg config.HTTP, db *postgres.PaymentsRepo, kafkaProducer *kafka.Producer) *WebServer {
+func New(cfg config.HTTP, db v1.Database) *Server {
 	healthHandler := &v1.HealthHandler{Version: config.Version, DB: db}
 
 	srv := &http.Server{
@@ -29,17 +27,17 @@ func New(cfg config.HTTP, db *postgres.PaymentsRepo, kafkaProducer *kafka.Produc
 		ReadHeaderTimeout: 2 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	return &WebServer{server: srv, cfg: cfg}
+	return &Server{server: srv, cfg: cfg}
 }
 
-func (ws *WebServer) Run() {
+func (ws *Server) Run() {
 	log.Printf("server started on %s", ws.server.Addr)
 	if err := ws.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server error: %v", err)
 	}
 }
 
-func (ws *WebServer) Close(ctx context.Context) {
+func (ws *Server) Close(ctx context.Context) {
 	if err := ws.server.Shutdown(ctx); err != nil {
 		log.Printf("server forced to shutdown: %v", err)
 	}
